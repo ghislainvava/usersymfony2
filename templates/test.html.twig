@@ -1,0 +1,14 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Test{% endblock %}
+
+{% block body %}
+
+   {% if app.user %}
+    <p>Bonjour {{ app.user.username }}, vous êtes connecté !</p>
+{% else %}
+    <p>Vous n'êtes pas connecté.</p>
+{% endif %}
+
+ 
+{% endblock %}
