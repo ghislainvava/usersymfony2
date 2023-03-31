@@ -2,95 +2,77 @@
 
 namespace App\Entity;
 
-use App\Repository\UserRepository;
+
 use Doctrine\ORM\Mapping as ORM;
+use App\Repository\UserRepository;
+use Doctrine\Common\Collections\Collection;
+use Doctrine\Common\Collections\ArrayCollection;
+use Symfony\Component\Validator\Constraints as Assert;
+use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
-use Symfony\Component\Security\Core\User\UserInterface;
+use Symfony\Component\Validator\Constraints\NotBlank;
+use Symfony\Component\Validator\Constraints\Length;
+use Symfony\Component\Validator\Constraints\EqualTo;
+use Symfony\Component\Validator\Constraints\Email;
 
 #[ORM\Entity(repositoryClass: UserRepository::class)]
-#[ORM\Table(name: '`user`')]
-#[UniqueEntity(fields: ['email'], message: 'There is already an account with this email')]
+#[UniqueEntity("email", message: "Cet email est déjà utilisé")]
 class User implements UserInterface, PasswordAuthenticatedUserInterface
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]
-    #[ORM\Column]
-    private ?int $id = null;
+    #[ORM\Column(type: 'integer')]
+    private $id;
 
-    #[ORM\Column(length: 180, unique: true)]
-    private ?string $email = null;
+    #[ORM\Column(type: 'string', length: 255)]
+    #[NotBlank(message: "Vous devez saisir un nom d'utilisateur.")]
+    private $username;
 
-    #[ORM\Column]
-    private array $roles = [];
+    #[ORM\Column(type: 'string', length: 255)]
+    #[Length(min: 8, minMessage: "Votre mot de passe doit posséder au moins {{ limit }} caractères")]
+    #[EqualTo(propertyPath: "confirm_password", message: "Vous n'avez donné le même mot de passe ")]
+    private $password;
 
-    /**
-     * @var string The hashed password
-     */
-    #[ORM\Column]
-    private ?string $password = null;
+    #[ORM\Column(type: 'string', length: 255, unique: true)]
+    #[Assert\Length(min: 2, max: 180)]
+    #[Email(message: "Vous devez saisir un nom email valide.")]
+    private $email;
 
-    #[ORM\Column(length: 255)]
-    private ?string $username = null;
+    #[ORM\Column(type: 'json')]
+    private array $roles;
 
-    public function getId(): ?int
+    #[ORM\OneToMany(mappedBy: 'user', targetEntity: Task::class)]
+    private Collection $author;
+
+    public function __construct()
+    {
+        $this->author = new ArrayCollection();
+        $this->roles = ['ROLE_USER'];
+    }
+
+    public function getId()
     {
         return $this->id;
     }
 
-    public function getEmail(): ?string
+
+    public function getUsername()
     {
-        return $this->email;
+        return $this->username;
     }
 
-    public function setEmail(string $email): self
+    public function setUsername($username)
     {
-        $this->email = $email;
-
-        return $this;
+        $this->username = $username;
     }
 
-    /**
-     * A visual identifier that represents this user.
-     *
-     * @see UserInterface
-     */
-    public function getUserIdentifier(): string
+    public function getSalt()
     {
-        return (string) $this->email;
+        return null;
     }
 
-    /**
-     * @deprecated since Symfony 5.3, use getUserIdentifier instead
-     */
-    public function getUsername(): string
-    {
-        return (string) $this->email;
-    }
-
-    /**
-     * @see UserInterface
-     */
-    public function getRoles(): array
-    {
-        $roles = $this->roles;
-        // guarantee every user at least has ROLE_USER
-        $roles[] = 'ROLE_USER';
-
-        return array_unique($roles);
-    }
-
-    public function setRoles(array $roles): self
-    {
-        $this->roles = $roles;
-
-        return $this;
-    }
-
-    /**
-     * @see PasswordAuthenticatedUserInterface
-     */
-    public function getPassword(): string
+    public function getPassword(): ?string
     {
         return $this->password;
     }
@@ -102,29 +84,65 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
-    /**
-     * Returning a salt is only needed, if you are not using a modern
-     * hashing algorithm (e.g. bcrypt or sodium) in your security.yaml.
-     *
-     * @see UserInterface
-     */
-    public function getSalt(): ?string
+    public function getEmail()
     {
-        return null;
+        return $this->email;
+    }
+
+    public function setEmail($email)
+    {
+        $this->email = $email;
+    }
+
+    public function setRoles(array $roles): self
+    {
+        $this->roles = $roles;
+
+        return $this;
     }
 
     /**
-     * @see UserInterface
+     * @return array<string>
      */
+    public function getRoles(): array
+    {
+        return $this->roles;
+    }
+
+    public function getUserIdentifier(): string
+    {
+        return (string) $this->email;
+    }
     public function eraseCredentials()
     {
-        // If you store any temporary, sensitive data on the user, clear it here
-        // $this->plainPassword = null;
     }
 
-    public function setUsername(string $username): self
+    /**
+     * @return Collection<int, Task>
+     */
+    public function getAuthor(): Collection
     {
-        $this->username = $username;
+        return $this->author;
+    }
+
+    public function addAuthor(Task $author): self
+    {
+        if (!$this->author->contains($author)) {
+            $this->author->add($author);
+            $author->setUser($this);
+        }
+
+        return $this;
+    }
+
+    public function removeAuthor(Task $author): self
+    {
+        if ($this->author->removeElement($author)) {
+            // set the owning side to null (unless already changed)
+            if ($author->getUser() === $this) {
+                $author->setUser(null);
+            }
+        }
 
         return $this;
     }
